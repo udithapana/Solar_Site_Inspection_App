@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solar Site Inspection</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#16233D">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+  :root{
+    --bg:#F6F5F1;
+    --surface:#FFFFFF;
+    --ink:#16233D;
+    --muted:#5B6472;
+    --line:#E3E1D9;
+    --gold:#E8A33D;
+    --gold-ink:#5A3A0A;
+    --green:#2F7A4D;
+    --green-bg:#EAF4EE;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:64px;
+  }
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:var(--ink); color:#fff;
+    padding:14px 18px 12px;
+  }
+  .header-titlerow{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  header.top h1{
+    margin:0; font-size:17px; font-weight:700; letter-spacing:.01em;
+  }
+  .header-history-btn{
+    flex-shrink:0; padding:6px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.3);
+    background:rgba(255,255,255,.08); color:#fff; font-size:12px; font-weight:700;
+  }
+  header.top p{margin:2px 0 10px; font-size:12.5px; color:#B9C2D6;}
+  .progress-track{
+    height:6px; background:rgba(255,255,255,.18); border-radius:4px; overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; background:var(--gold); width:0%;
+    transition:width .35s ease;
+  }
+  .progress-label{
+    display:flex; justify-content:space-between; font-size:11px; color:#B9C2D6; margin-top:6px;
+  }
+  main{padding:14px 14px 0;}
+  .section{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .section-head{
+    display:flex; align-items:center; gap:10px;
+    padding:14px 16px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .section-num{
+    width:26px; height:26px; border-radius:8px;
+    background:var(--bg); color:var(--muted);
+    font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .section.done .section-num{background:var(--green-bg); color:var(--green);}
+  .section-title{flex:1; font-size:14.5px; font-weight:600;}
+  .section-count{font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .chevron{
+    width:9px; height:9px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted);
+    transform:rotate(45deg); transition:transform .2s ease; margin-right:2px;
+  }
+  .section.open .chevron{transform:rotate(-135deg);}
+  .section-body{
+    max-height:0; overflow:hidden; transition:max-height .25s ease;
+    border-top:1px solid transparent;
+  }
+  .section.open .section-body{border-top:1px solid var(--line); max-height:3000px;}
+  .section-inner{padding:14px 16px 6px;}
+  .field{margin-bottom:16px;}
+  .conditional-field-hidden{display:none;}
+  .field label{
+    display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--ink);
+  }
+  .field .hint{font-size:11.5px; color:var(--muted); margin-top:5px;}
+  input[type=text],input[type=tel],input[type=date],input[type=number],select,textarea{
+    width:100%; padding:11px 12px; font-size:15px;
+    border:1px solid var(--line); border-radius:10px;
+    background:#FCFCFA; color:var(--ink); font-family:inherit;
+    appearance:none; -webkit-appearance:none;
+  }
+  textarea{min-height:90px; resize:vertical;}
+  select{
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size:5px 5px, 5px 5px; background-repeat:no-repeat;
+  }
+  input:focus,select:focus,textarea:focus{
+    outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(232,163,61,.25);
+  }
+  .qty-row{display:flex; gap:8px;}
+  .qty-row input{flex:1;}
+  .unit-chip{
+    display:flex; align-items:center; justify-content:center;
+    padding:0 14px; border-radius:10px; background:var(--bg); color:var(--muted);
+    font-size:13px; font-weight:600; border:1px solid var(--line); min-width:52px;
+  }
+  .toggle{display:flex; gap:8px;}
+  .toggle button{
+    flex:1; padding:11px 0; border-radius:10px; border:1px solid var(--line);
+    background:#FCFCFA; color:var(--ink); font-size:14px; font-weight:600;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .toggle button.active-yes{background:var(--green-bg); border-color:var(--green); color:var(--green);}
+  .toggle button.active-no{background:#F5EDEA; border-color:#B5502B; color:#B5502B;}
+  .picker-btn{
+    width:100%; padding:11px 34px 11px 12px; font-size:15px; text-align:left;
+    border:1px solid var(--line); border-radius:10px; background:#FCFCFA; color:var(--muted);
+    font-family:inherit; position:relative; -webkit-tap-highlight-color:transparent;
+  }
+  .picker-btn.filled{color:var(--ink);}
+  .picker-btn::after{
+    content:""; position:absolute; right:15px; top:50%; width:8px; height:8px;
+    border-right:2px solid var(--muted); border-bottom:2px solid var(--muted);
+    transform:translateY(-65%) rotate(45deg);
+  }
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(22,35,61,.45); z-index:100;
+    display:none; align-items:flex-end;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-sheet{
+    background:var(--surface); width:100%; border-radius:18px 18px 0 0;
+    max-height:70vh; overflow-y:auto; padding-bottom:14px;
+  }
+  .modal-handle{width:36px; height:4px; background:var(--line); border-radius:3px; margin:10px auto 2px;}
+  .modal-title{font-size:13px; font-weight:700; padding:10px 18px 8px; color:var(--muted);}
+  .modal-option{
+    display:block; width:100%; text-align:left; padding:14px 18px; border:none;
+    border-top:1px solid var(--line); background:none; font-size:15.5px; color:var(--ink);
+    font-family:inherit; -webkit-tap-highlight-color:transparent;
+  }
+  .modal-option.selected{color:var(--gold-ink); font-weight:700; background:#FBF3E4;}
+  .modal-cancel{
+    display:block; width:calc(100% - 28px); margin:12px 14px 0; padding:12px;
+    text-align:center; border-radius:10px; border:1px solid var(--line); background:var(--bg);
+    font-weight:600; color:var(--muted); font-family:inherit;
+  }
+  .photo-item{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 0; border-bottom:1px solid var(--line);
+  }
+  .photo-item:last-child{border-bottom:none;}
+  .photo-thumb{
+    width:52px; height:52px; border-radius:9px; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .photo-thumb img{width:100%; height:100%; object-fit:cover;}
+  .photo-info{flex:1; min-width:0;}
+  .photo-info .name{font-size:13.5px; font-weight:600;}
+  .photo-info .status{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .photo-item.captured .status{color:var(--green); font-weight:600;}
+  .photo-btn{
+    padding:9px 14px; border-radius:9px; border:1px solid var(--ink); background:var(--ink);
+    color:#fff; font-size:12.5px; font-weight:600; flex-shrink:0;
+  }
+  .photo-item.captured .photo-btn{background:var(--surface); color:var(--ink);}
+  .photo-actions{display:flex; flex-direction:column; gap:6px; flex-shrink:0;}
+  .photo-btn-outline{background:var(--surface); color:var(--ink); border:1px solid var(--line);}
+  .photo-item.captured .photo-btn-outline{background:var(--surface); color:var(--ink);}
+  .extra-photos-title{
+    font-size:11.5px; font-weight:700; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.03em; margin:14px 0 4px; border-top:1px solid var(--line); padding-top:12px;
+  }
+  .extra-photo-remove{
+    padding:6px 10px; border-radius:8px; border:1px solid #F0D8D2; background:var(--surface);
+    color:#C0392B; font-size:11.5px; font-weight:600; flex-shrink:0;
+  }
+
+  /* Sketch / paint tool */
+  .sketch-overlay{
+    position:fixed; inset:0; background:#fff; z-index:200;
+    display:none; flex-direction:column;
+  }
+  .sketch-overlay.show{display:flex;}
+  .sketch-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; background:var(--ink); color:#fff; flex-shrink:0;
+  }
+  .sketch-topbar button{
+    border:none; background:none; color:#fff; font-size:14px; font-weight:700; padding:8px 4px;
+  }
+  .sketch-topbar button.save-btn{color:var(--gold);}
+  .sketch-canvas-wrap{flex:1; position:relative; overflow:hidden; background:#fff;}
+  #sketchCanvas{width:100%; height:100%; touch-action:none; display:block;}
+  .sketch-toolbar{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    background:var(--bg); border-top:1px solid var(--line); flex-shrink:0;
+    overflow-x:auto;
+  }
+  .sketch-swatch{
+    width:26px; height:26px; border-radius:50%; border:2px solid transparent; flex-shrink:0;
+  }
+  .sketch-swatch.active{border-color:var(--ink);}
+  .sketch-tool-btn{
+    padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface);
+    font-size:12px; font-weight:600; color:var(--ink); flex-shrink:0; white-space:nowrap;
+  }
+  .sketch-tool-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  /* Location field */
+  .location-row{display:flex; gap:8px;}
+  .location-row input{flex:1;}
+  .loc-btn{
+    padding:0 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface);
+    color:var(--ink); font-size:13px; font-weight:600; flex-shrink:0; white-space:nowrap;
+  }
+  .loc-open{
+    display:none; margin-top:8px; font-size:12.5px; font-weight:700; color:var(--green);
+    text-decoration:none;
+  }
+  .loc-open.show{display:inline-block;}
+  .loc-manual{
+    display:none; margin-top:6px; font-size:11.5px; color:var(--muted); text-decoration:underline;
+  }
+  .loc-manual.show{display:block;}
+
+  /* Urgency control (sticky header) */
+  .urgency-row{
+    display:flex; align-items:center; gap:8px; margin-top:10px;
+  }
+  .urgency-label{font-size:11.5px; color:#B9C2D6; flex-shrink:0;}
+  .urgency-btn{
+    flex:1; padding:7px 0; border-radius:8px; border:1px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.06); color:#fff; font-size:12px; font-weight:700;
+  }
+  .urgency-btn[data-level="Priority"].active{background:var(--gold); border-color:var(--gold); color:var(--gold-ink);}
+  .urgency-btn[data-level="Urgent"].active{background:#C0392B; border-color:#C0392B; color:#fff;}
+  .urgency-btn[data-level="Normal"].active{background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.4);}
+  .urgency-date{
+    flex:1; padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,.3);
+    background:rgba(255,255,255,.08); color:#fff; font-size:12px; font-family:inherit;
+    color-scheme: dark;
+  }
+  header.top.urgent{box-shadow: inset 0 -3px 0 #C0392B;}
+  .profile-row{font-size:12px; color:#B9C2D6; margin-top:8px; display:flex; align-items:center; gap:6px;}
+  .profile-chip{
+    background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.3); color:#fff;
+    padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700;
+  }
+
+  /* History */
+  .history-overlay{
+    position:fixed; inset:0; background:var(--bg); z-index:200;
+    display:none; flex-direction:column;
+  }
+  .history-overlay.show{display:flex;}
+  .history-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; background:var(--ink); color:#fff; flex-shrink:0;
+  }
+  .history-topbar h2{margin:0; font-size:15px;}
+  .history-topbar button{border:none; background:none; color:#fff; font-size:14px; font-weight:700;}
+  .history-list{flex:1; overflow-y:auto; padding:14px;}
+  .history-empty{color:var(--muted); font-size:13.5px; text-align:center; margin-top:40px;}
+  .history-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px; margin-bottom:12px;
+  }
+  .history-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .history-card .hc-name{font-size:14.5px; font-weight:700; color:var(--ink);}
+  .history-card .hc-meta{font-size:12px; color:var(--muted); margin-top:3px;}
+  .hc-badge{
+    flex-shrink:0; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:6px;
+    background:var(--bg); color:var(--muted);
+  }
+  .hc-badge.Priority{background:#FBF3E4; color:var(--gold-ink);}
+  .hc-badge.Urgent{background:#F5EDEA; color:#C0392B;}
+  .history-card-actions{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .hc-btn{
+    padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg);
+    font-size:12px; font-weight:600; color:var(--ink);
+  }
+  .hc-btn.danger{color:#C0392B; border-color:#F0D8D2;}
+  .history-group{margin-bottom:22px;}
+  .history-group-title{
+    font-size:13px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em;
+    padding:0 2px 8px; display:flex; align-items:center; gap:8px;
+  }
+  .history-group-count{
+    background:var(--line); color:var(--ink); border-radius:10px; padding:1px 8px;
+    font-size:11px; font-weight:700; text-transform:none; letter-spacing:0;
+  }
+  footer.actions{
+    padding:20px 16px 34px; margin-top:6px;
+  }
+  footer.actions h2{font-size:15px; margin:0 0 4px;}
+  footer.actions p{font-size:12.5px; color:var(--muted); margin:0 0 14px;}
+  .btn{
+    display:block; width:100%; text-align:center; padding:14px; border-radius:12px;
+    font-size:15px; font-weight:700; border:none; margin-bottom:10px; cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn-primary{background:var(--gold); color:var(--gold-ink);}
+  .btn-secondary{background:var(--surface); color:var(--ink); border:1px solid var(--line);}
+  .btn-ghost{background:transparent; color:var(--muted); border:1px dashed var(--line); font-weight:600; font-size:13px; padding:11px;}
+  .toast{
+    position:fixed; left:16px; right:16px; bottom:20px; z-index:50;
+    background:var(--ink); color:#fff; padding:12px 16px; border-radius:10px;
+    font-size:13.5px; text-align:center; opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease; transform:translateY(8px);
+  }
+  .toast.show{opacity:1; transform:translateY(0);}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="header-titlerow">
+    <h1>Solar Site Inspection</h1>
+    <button type="button" id="btnHistory" class="header-history-btn">History</button>
+  </div>
+  <p>Fill in on site &middot; export when done &middot; send back for BOQ</p>
+  <div class="profile-row">
+    Filling as: <button type="button" id="profileDisplay" class="profile-chip">Set your name</button>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-label"><span id="progressText">0 of 0 fields filled</span><span id="progressPct">0%</span></div>
+  <div class="progress-label" id="saveStatus" style="margin-top:2px;"><span>Autosaves on this device as you type</span><span></span></div>
+  <div class="urgency-row">
+    <span class="urgency-label">BOQ urgency</span>
+    <button type="button" class="urgency-btn active" data-level="Normal">Normal</button>
+    <button type="button" class="urgency-btn" data-level="Priority">Priority</button>
+    <button type="button" class="urgency-btn" data-level="Urgent">Urgent</button>
+  </div>
+  <div class="urgency-row" style="margin-top:8px;">
+    <span class="urgency-label">BOQ needed by</span>
+    <input type="date" id="boqExpectedDate" class="urgency-date">
+  </div>
+</header>
+
+<main id="sections"></main>
+
+<footer class="actions">
+  <h2>Export &amp; send</h2>
+  <p>Nothing is uploaded automatically &mdash; generate the files below, then send them yourself. Your answers and photos are saved on this device as a draft, so closing the tab or switching apps is safe.</p>
+  <button class="btn btn-primary" id="btnShareBundle">Share Excel + photos to WhatsApp / Email / etc.</button>
+  <p style="margin:-4px 0 14px; font-size:11.5px;">Zips the Excel and all your photos into one file, then opens your phone's share sheet &mdash; pick WhatsApp, Gmail, Outlook, Drive, whichever you want to send it with.</p>
+  <button class="btn btn-secondary" id="btnExcel">Download completed Excel</button>
+  <button class="btn btn-secondary" id="btnPhotos">Download site photos (.zip)</button>
+  <button class="btn btn-secondary" id="btnEmail">Compose email (text only, no attachments)</button>
+  <button class="btn btn-secondary" id="btnSharePackage">Share data package (includes photos)</button>
+  <button class="btn btn-secondary" id="btnSaveHistory">Save to history &amp; start new visit</button>
+  <button class="btn btn-secondary" id="btnImportPackage">Import a data package someone sent you</button>
+  <input type="file" accept="application/json,.json" id="importFileInput" style="display:none;">
+  <button class="btn btn-ghost" id="btnHistory2">View past inspections</button>
+  <button class="btn btn-ghost" id="btnReset">Clear form (keeps history)</button>
+</footer>
+
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="pickerOverlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="pickerTitle"></div>
+    <div id="pickerOptions"></div>
+    <button type="button" class="modal-cancel" id="pickerCancel">Cancel</button>
+  </div>
+</div>
+
+<div class="sketch-overlay" id="sketchOverlay">
+  <div class="sketch-topbar">
+    <button type="button" id="sketchCancel">Cancel</button>
+    <span>Site sketch</span>
+    <button type="button" class="save-btn" id="sketchSave">Save</button>
+  </div>
+  <div class="sketch-canvas-wrap">
+    <canvas id="sketchCanvas"></canvas>
+  </div>
+  <div class="sketch-toolbar">
+    <div class="sketch-swatch active" data-color="#16233D" style="background:#16233D"></div>
+    <div class="sketch-swatch" data-color="#C0392B" style="background:#C0392B"></div>
+    <div class="sketch-swatch" data-color="#2F7A4D" style="background:#2F7A4D"></div>
+    <div class="sketch-swatch" data-color="#2A6FB0" style="background:#2A6FB0"></div>
+    <button type="button" class="sketch-tool-btn" data-width="2">Thin</button>
+    <button type="button" class="sketch-tool-btn active" data-width="4">Medium</button>
+    <button type="button" class="sketch-tool-btn" data-width="8">Thick</button>
+    <button type="button" class="sketch-tool-btn" id="sketchEraser">Eraser</button>
+    <button type="button" class="sketch-tool-btn" id="sketchUndo">Undo</button>
+    <button type="button" class="sketch-tool-btn" id="sketchClear">Clear</button>
+  </div>
+</div>
+
+<div class="history-overlay" id="historyOverlay">
+  <div class="history-topbar">
+    <span></span>
+    <h2>Past inspections</h2>
+    <button type="button" id="historyClose">Close</button>
+  </div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<div class="modal-overlay" id="nameOverlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Your name</div>
+    <div style="padding:0 18px 4px;">
+      <p style="font-size:12.5px; color:var(--muted); margin:0 0 10px;">
+        Used to label your submissions when you share a data package, and to file your entries separately in History.
+      </p>
+      <input type="text" id="nameInput" placeholder="e.g. Nimal Perera"
+        style="width:100%; padding:11px 12px; font-size:15px; border:1px solid var(--line); border-radius:10px; background:#FCFCFA; color:var(--ink); font-family:inherit; box-sizing:border-box;">
+    </div>
+    <button type="button" class="modal-cancel" id="nameSave" style="background:var(--gold); color:var(--gold-ink); border-color:var(--gold); margin-top:14px;">Save</button>
+    <button type="button" class="modal-cancel" id="nameCancel">Cancel</button>
+  </div>
+</div>
+
+<script>
+// ---------- Data model (mirrors the finalized Site Inspection sheet) ----------
+const SECTIONS = [
+  { title:"Project & customer information", items:[
+    {id:"customer", label:"Customer / project name", type:"text"},
+    {id:"address", label:"Site address", type:"text"},
+    {id:"location", label:"Site location", type:"location"},
+    {id:"contact", label:"Contact number", type:"tel"},
+    {id:"insp_date", label:"Inspection date", type:"date"},
+    {id:"inspector", label:"Inspector name", type:"text"},
+    {id:"req_size", label:"Requested system size", type:"number", unit:"kWp"},
+    {id:"bill_units", label:"Average monthly electricity bill", type:"number", unit:"kWh"},
+  ]},
+  { title:"Electrical supply & connection", items:[
+    {id:"connection", label:"Connection type", type:"select", options:["1P-30A","3P-30A","3P-60A","Other"]},
+    {id:"main_breaker", label:"Main breaker rating", type:"number", unit:"A"},
+    {id:"meter_type", label:"Meter type", type:"select", options:["Analog","Digital","Smart"]},
+    {id:"import_export", label:"Import-export capable meter", type:"yesno"},
+    {id:"tariff", label:"Tariff category", type:"select", options:["Domestic","Religious","GP 1 Small","GP 2 Medium","GP 3 Large","H 1 Small","H 2 Medium","H 3 Large","IP 1 Small","IP 2 Medium","IP 3 Large","GV 1 Small","GV 2 Medium","GV 3 Large"]},
+    {id:"ceb_cable", label:"CEB supply cable condition / size", type:"text"},
+  ]},
+  { title:"Roof profile & mounting structure", items:[
+    {id:"has_second_roof", label:"This site has a second roof / structure (different pitch, material or orientation)", type:"yesno"},
+    {id:"roof_profile", label:"Roof profile", type:"select", options:["Tile","Asbestos","Zn-Al","Concrete","Other"]},
+    {id:"roof_structure", label:"Roof structure", type:"select", options:["C-channel","L-Angle","Wooden","RCC","Other"]},
+    {id:"roof_condition", label:"Roof condition", type:"select", options:["Good","Fair","Poor - needs reinforcement"]},
+    {id:"roof_pitch", label:"Roof pitch / tilt angle", type:"number", unit:"deg"},
+    {id:"roof_orientation", label:"Roof orientation / azimuth", type:"select", options:["North","Northeast","East","Southeast","South","Southwest","West","Northwest"]},
+    {id:"building_height", label:"Building height", type:"number", unit:"m"},
+    {id:"roof_area", label:"Available roof area for panels", type:"number", unit:"sqm"},
+    {id:"structure_type", label:"Mounting structure type required", type:"select", options:["Standard Rail","Separate Structure","Separate Roof","Ground Mount"]},
+    {id:"structure_sets", label:"No. of mounting structure sets needed", type:"number", unit:"sets"},
+    {id:"roof_profile_2", label:"Roof profile (2nd roof)", type:"select", conditional:"has_second_roof", options:["Tile","Asbestos","Zn-Al","Concrete","Other"]},
+    {id:"roof_structure_2", label:"Roof structure (2nd roof)", type:"select", conditional:"has_second_roof", options:["C-channel","L-Angle","Wooden","RCC","Other"]},
+    {id:"roof_condition_2", label:"Roof condition (2nd roof)", type:"select", conditional:"has_second_roof", options:["Good","Fair","Poor - needs reinforcement"]},
+    {id:"roof_pitch_2", label:"Roof pitch / tilt angle (2nd roof)", type:"number", unit:"deg", conditional:"has_second_roof"},
+    {id:"roof_orientation_2", label:"Roof orientation / azimuth (2nd roof)", type:"select", conditional:"has_second_roof", options:["North","Northeast","East","Southeast","South","Southwest","West","Northwest"]},
+    {id:"roof_area_2", label:"Available roof area for panels (2nd roof)", type:"number", unit:"sqm", conditional:"has_second_roof"},
+    {id:"structure_type_2", label:"Mounting structure type required (2nd roof)", type:"select", conditional:"has_second_roof", options:["Standard Rail","Separate Structure","Separate Roof","Ground Mount"]},
+    {id:"structure_sets_2", label:"No. of mounting structure sets needed (2nd roof)", type:"number", unit:"sets", conditional:"has_second_roof"},
+  ]},
+  { title:"Panel layout & shading", items:[
+    {id:"panel_watt", label:"Proposed panel wattage", type:"number", unit:"Wp"},
+    {id:"panel_count", label:"Total proposed panel count", type:"number", unit:"pcs"},
+    {id:"array_count", label:"Number of roof planes", type:"number", unit:"nos"},
+    {id:"panel_direction", label:"Panel direction(s)", type:"text"},
+    {id:"shading", label:"Shading observed", type:"select", options:["None","Partial","Significant"]},
+    {id:"shading_source", label:"Shading source", type:"text"},
+    {id:"panel_logistics", label:"Panel logistics to roof", type:"select", options:["Manual","Crane Required","Hoist"]},
+  ]},
+  { title:"Inverter & DC-side equipment", items:[
+    {id:"inv_location", label:"Inverter location", type:"select", options:["Indoor","Outdoor","Garage","Roof"]},
+    {id:"inv_clearance", label:"Inverter clearance available", type:"yesno"},
+    {id:"inv_capacity", label:"Proposed inverter capacity", type:"number", unit:"kW"},
+    {id:"inv_count", label:"Number of inverters", type:"number", unit:"pcs"},
+    {id:"mppt_strings", label:"Number of MPPT / strings", type:"number", unit:"nos"},
+    {id:"dc_spd", label:"DC SPD required", type:"yesno"},
+    {id:"dc_spd_qty", label:"DC SPD quantity", type:"number", unit:"pcs"},
+    {id:"dc_iso", label:"DC isolator required", type:"yesno"},
+    {id:"dc_iso_qty", label:"DC isolator quantity", type:"number", unit:"pcs"},
+  ]},
+  { title:"AC-side equipment & metering", items:[
+    {id:"ac_provision", label:"Provision for AC MCB / AC SPD", type:"yesno"},
+    {id:"ac_spd_qty", label:"AC MCB / SPD quantity", type:"number", unit:"pcs"},
+    {id:"meter_location", label:"Meter location", type:"text"},
+    {id:"bb_box", label:"Provision for AC isolator / BB box", type:"yesno"},
+  ]},
+  { title:"Cabling (DC, AC & earthing)", items:[
+    {id:"dc_path", label:"DC cable path arrangement (panel to inverter)", type:"select", options:["Casing","PVC Pipe","DC Duct","Al Casing"]},
+    {id:"dc_cable_len", label:"Estimated DC cable length (per polarity)", type:"number", unit:"m"},
+    {id:"dc_cable_size", label:"DC cable size", type:"text"},
+    {id:"ac_path", label:"AC cable arrangement (inverter to meter)", type:"select", options:["Underground","Casing","Ladder","Clipped"]},
+    {id:"ac_cable_len", label:"Estimated AC cable length", type:"number", unit:"m"},
+    {id:"ac_cable_size", label:"AC cable size", type:"text"},
+    {id:"earth_location", label:"Earthing point location", type:"text"},
+    {id:"common_earth", label:"Common earth point available", type:"yesno"},
+    {id:"earth_cable_len", label:"Main earthing cable length required", type:"number", unit:"m"},
+  ]},
+  { title:"Site access & logistics", items:[
+    {id:"site_access", label:"Site access for material delivery", type:"select", options:["Easy","Moderate","Difficult"]},
+    {id:"parking", label:"Parking / unloading availability", type:"yesno"},
+    {id:"scaffolding", label:"Scaffolding / working-at-height equipment needed", type:"yesno"},
+  ]},
+  { title:"Site photos checklist", photoSection:true, items:[
+    {id:"photo_roof_overview", label:"Roof overview (all elevations)", type:"photo"},
+    {id:"photo_roof_structure", label:"Roof structure close-up", type:"photo"},
+    {id:"photo_db", label:"Main distribution board / breaker", type:"photo"},
+    {id:"photo_meter", label:"Existing electricity meter", type:"photo"},
+    {id:"photo_inverter_loc", label:"Proposed inverter location", type:"photo"},
+    {id:"photo_access", label:"Roof access point", type:"photo"},
+    {id:"photo_shading", label:"Shading obstructions", type:"photo"},
+    {id:"photo_sketch", label:"Site sketch / layout with dimensions", type:"photo"},
+  ]},
+  { title:"Inspector remarks & sales notes", items:[
+    {id:"remarks", label:"Notes for the sales / BOQ team", type:"textarea"},
+  ]},
+  { title:"Sign-off", items:[
+    {id:"inspected_by", label:"Inspected by (name)", type:"text"},
+    {id:"signoff_date", label:"Date", type:"date"},
+  ]},
+];
+
+const answers = {};
+const photos = {}; // id -> {file, url}
+
+// ---------- Embedded finalized template (exact bytes of your uploaded workbook) ----------
+// The export writes answers into these exact cells so the downloaded file keeps
+// your finalized layout, section colors and formatting - only the values change.
+const TEMPLATE_XLSX_B64 = "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";
+
+const CELL_MAP = {
+  customer:"C6", address:"C7", location:"C8", contact:"C9", insp_date:"C10", inspector:"C11",
+  req_size:"D12", bill_units:"D13",
+  connection:"C17", main_breaker:"D18", meter_type:"C19", import_export:"C20", tariff:"C21", ceb_cable:"C22",
+  roof_profile:"C26", roof_structure:"C27", roof_condition:"C28", roof_pitch:"D29", roof_orientation:"C30",
+  building_height:"D31", roof_area:"D32", structure_type:"C33", structure_sets:"D34",
+  panel_watt:"D38", panel_count:"D39", array_count:"D40", panel_direction:"C41", shading:"C42",
+  shading_source:"C43", panel_logistics:"C44",
+  inv_location:"C48", inv_clearance:"C49", inv_capacity:"D50", inv_count:"D51", mppt_strings:"D52",
+  dc_spd:"C53", dc_spd_qty:"D54", dc_iso:"C55", dc_iso_qty:"D56",
+  ac_provision:"C60", ac_spd_qty:"D61", meter_location:"C62", bb_box:"C63",
+  dc_path:"C67", dc_cable_len:"D68", dc_cable_size:"C69", ac_path:"C70", ac_cable_len:"D71", ac_cable_size:"C72",
+  earth_location:"C73", common_earth:"C74", earth_cable_len:"D75",
+  site_access:"C79", parking:"C80", scaffolding:"C81",
+  remarks:"A95",
+  inspected_by:"B102", signoff_date:"D102"
+};
+const QTY_KEYS = new Set(["req_size","bill_units","main_breaker","roof_pitch","building_height","roof_area",
+  "structure_sets","panel_watt","panel_count","array_count","inv_capacity","inv_count","mppt_strings",
+  "dc_spd_qty","dc_iso_qty","ac_spd_qty","dc_cable_len","ac_cable_len","earth_cable_len"]);
+const PHOTO_CELL_MAP = {
+  photo_roof_overview:"C85", photo_roof_structure:"C86", photo_db:"C87", photo_meter:"C88",
+  photo_inverter_loc:"C89", photo_access:"C90", photo_shading:"C91", photo_sketch:"C92"
+};
+
+// ---------- Local draft storage (IndexedDB) ----------
+// Keeps the visit's answers and photos on this device so closing the tab,
+// switching apps, or losing signal mid-visit doesn't lose the work.
+// Note: this only persists in a real mobile browser (e.g. after "Add to
+// Home Screen"). Inside Claude's own in-chat file preview, browser storage
+// is sandboxed and a draft may not survive a reload there.
+let db;
+function openDB(){
+  return new Promise((resolve)=>{
+    if(!("indexedDB" in window)){ resolve(null); return; }
+    const req = indexedDB.open("solarInspectionDraft", 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore("kv"); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> resolve(null);
+  });
+}
+function idbPut(key, value){
+  if(!db) return;
+  try{ db.transaction("kv","readwrite").objectStore("kv").put(value, key); }catch(e){}
+}
+function idbPutAwait(key, value){
+  return new Promise((resolve, reject)=>{
+    if(!db){ reject(new Error("no db")); return; }
+    try{
+      const tx = db.transaction("kv","readwrite");
+      tx.objectStore("kv").put(value, key);
+      tx.oncomplete = ()=> resolve(true);
+      tx.onerror = ()=> reject(tx.error);
+    }catch(e){ reject(e); }
+  });
+}
+function idbDeleteKey(key){
+  return new Promise((resolve)=>{
+    if(!db){ resolve(); return; }
+    try{
+      const tx = db.transaction("kv","readwrite");
+      tx.objectStore("kv").delete(key);
+      tx.oncomplete = ()=> resolve();
+      tx.onerror = ()=> resolve();
+    }catch(e){ resolve(); }
+  });
+}
+function idbGet(key){
+  return new Promise((resolve)=>{
+    if(!db){ resolve(undefined); return; }
+    const req = db.transaction("kv","readonly").objectStore("kv").get(key);
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> resolve(undefined);
+  });
+}
+function idbGetAllByPrefix(prefix){
+  return new Promise((resolve)=>{
+    if(!db){ resolve([]); return; }
+    const results = [];
+    try{
+      const req = db.transaction("kv","readonly").objectStore("kv").openCursor();
+      req.onsuccess = (e)=>{
+        const cursor = e.target.result;
+        if(cursor){
+          if(String(cursor.key).indexOf(prefix) === 0) results.push({key:cursor.key, value:cursor.value});
+          cursor.continue();
+        } else {
+          resolve(results);
+        }
+      };
+      req.onerror = ()=> resolve(results);
+    }catch(e){ resolve(results); }
+  });
+}
+function idbClear(){
+  if(!db) return;
+  try{ db.transaction("kv","readwrite").objectStore("kv").clear(); }catch(e){}
+}
+// Clears only the active in-progress draft (answers + its photos), leaving
+// saved history entries untouched.
+async function clearActiveDraftOnly(){
+  await idbDeleteKey("answers");
+  for(const sec of SECTIONS){
+    if(!sec.photoSection) continue;
+    for(const it of sec.items){
+      await idbDeleteKey("photo:"+it.id);
+    }
+  }
+  const extraIdsRaw = await idbGet("extraPhotoIds");
+  if(extraIdsRaw){
+    try{
+      const ids = JSON.parse(extraIdsRaw);
+      for(const id of ids) await idbDeleteKey("photo:"+id);
+    }catch(e){}
+  }
+  await idbDeleteKey("extraPhotoIds");
+}
+function markSaved(){
+  const el = document.querySelector("#saveStatus span:last-child");
+  if(!el) return;
+  const now = new Date();
+  el.textContent = "Saved " + now.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+}
+function saveDraft(){
+  idbPut("answers", answers);
+  markSaved();
+}
+async function restoreDraft(){
+  const saved = await idbGet("answers");
+  if(saved) Object.assign(answers, saved);
+  for(const sec of SECTIONS){
+    if(sec.photoSection){
+      for(const it of sec.items){
+        const rec = await idbGet("photo:"+it.id);
+        if(rec && rec.blob){
+          const f = new File([rec.blob], rec.name || (it.id+".jpg"), {type: rec.blob.type});
+          const url = URL.createObjectURL(f);
+          photos[it.id] = {file:f, url};
+          const thumb = document.getElementById("thumb-"+it.id);
+          const status = document.getElementById("status-"+it.id);
+          const row = document.getElementById("photorow-"+it.id);
+          const btn = document.getElementById("btn-"+it.id);
+          if(thumb) thumb.innerHTML = `<img src="${url}">`;
+          if(status) status.textContent = f.name;
+          if(row) row.classList.add("captured");
+          if(btn) btn.textContent = "Retake";
+          if(it.id === "photo_sketch"){
+            const drawBtn = document.getElementById("draw-"+it.id);
+            if(drawBtn) drawBtn.textContent = "Edit";
+          }
+        }
+      }
+    } else {
+      for(const it of sec.items){
+        const v = answers[it.id];
+        if(v === undefined || v === "") continue;
+        if(it.type === "yesno"){
+          const wrap = document.getElementById("in-"+it.id);
+          if(!wrap) continue;
+          wrap.dataset.value = v;
+          wrap.querySelectorAll("button").forEach(b=>{
+            b.classList.toggle("active-yes", b.dataset.val==="Yes" && v==="Yes");
+            b.classList.toggle("active-no", b.dataset.val==="No" && v==="No");
+          });
+        } else if(it.type === "select"){
+          const btn = document.getElementById("in-"+it.id);
+          if(!btn) continue;
+          btn.textContent = v;
+          btn.classList.add("filled");
+          btn.dataset.value = v;
+        } else if(it.type === "location"){
+          const el = document.getElementById("in-"+it.id);
+          if(el) el.value = v;
+          const openLink = document.getElementById("locopen-"+it.id);
+          if(openLink && /^https?:\/\//i.test(v)){
+            openLink.href = v;
+            openLink.classList.add("show");
+          }
+        } else {
+          const el = document.getElementById("in-"+it.id);
+          if(el) el.value = v;
+        }
+      }
+    }
+  }
+  if(answers.boq_urgency) setUrgency(answers.boq_urgency, false);
+  if(answers.boq_expected_date){
+    const dEl = document.getElementById("boqExpectedDate");
+    if(dEl) dEl.value = answers.boq_expected_date;
+  }
+  if(answers.inspected_by && answers.inspected_by !== answers.inspector){
+    inspectedByManuallyEdited = true; // they'd diverged it on purpose - don't auto-overwrite anymore
+  }
+  const extraIdsRaw = await idbGet("extraPhotoIds");
+  if(extraIdsRaw){
+    try{
+      const ids = JSON.parse(extraIdsRaw);
+      for(const id of ids){
+        const rec = await idbGet("photo:"+id);
+        if(rec && rec.blob){
+          const f = new File([rec.blob], rec.name || (id+".jpg"), {type: rec.blob.type});
+          const url = URL.createObjectURL(f);
+          photos[id] = {file:f, url};
+          extraPhotoIds.push(id);
+          insertExtraPhotoRow(id, url, f.name);
+        }
+      }
+    }catch(e){ console.warn("Couldn't restore additional photos:", e); }
+  }
+  updateConditionalFields();
+  if(saved) toast("Resumed your saved draft");
+}
+
+// ---------- Progress ----------
+function countable(item){ return item.type !== "textarea" ? true : true; }
+function isFilled(item){
+  if(item.type === "photo") return !!photos[item.id];
+  const v = answers[item.id];
+  return v !== undefined && v !== null && String(v).trim() !== "";
+}
+function isConditionallyVisible(item){
+  return !item.conditional || answers[item.conditional] === "Yes";
+}
+function updateConditionalFields(){
+  document.querySelectorAll("[data-conditional]").forEach(el=>{
+    const visible = answers[el.dataset.conditional] === "Yes";
+    el.classList.toggle("conditional-field-hidden", !visible);
+  });
+}
+function updateProgress(){
+  let total=0, filled=0;
+  SECTIONS.forEach(sec=>{
+    let secTotal=0, secFilled=0;
+    sec.items.forEach(it=>{
+      if(!isConditionallyVisible(it)) return;
+      secTotal++; total++;
+      if(isFilled(it)){filled++; secFilled++;}
+    });
+    const el = document.getElementById("count-"+sec._idx);
+    if(el) el.textContent = secFilled+"/"+secTotal;
+    const secEl = document.getElementById("sec-"+sec._idx);
+    if(secEl) secEl.classList.toggle("done", secTotal>0 && secFilled === secTotal);
+  });
+  const pct = total ? Math.round((filled/total)*100) : 0;
+  document.getElementById("progressFill").style.width = pct+"%";
+  document.getElementById("progressText").textContent = filled+" of "+total+" fields filled";
+  document.getElementById("progressPct").textContent = pct+"%";
+}
+
+// ---------- Render ----------
+const container = document.getElementById("sections");
+
+SECTIONS.forEach((sec, si)=>{
+  sec._idx = si;
+  const secDiv = document.createElement("div");
+  secDiv.className = "section" + (si===0 ? " open" : "");
+  secDiv.id = "sec-"+si;
+
+  const head = document.createElement("div");
+  head.className = "section-head";
+  head.innerHTML = `
+    <div class="section-num">${si+1}</div>
+    <div class="section-title">${sec.title}</div>
+    <div class="section-count" id="count-${si}">0/${sec.items.length}</div>
+    <div class="chevron"></div>`;
+  head.addEventListener("click", ()=>{
+    secDiv.classList.toggle("open");
+  });
+  secDiv.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "section-body";
+  const inner = document.createElement("div");
+  inner.className = "section-inner";
+
+  if(sec.photoSection){
+    sec.items.forEach(it=>{
+      const row = document.createElement("div");
+      row.className = "photo-item";
+      row.id = "photorow-"+it.id;
+      const isSketch = it.id === "photo_sketch";
+      row.innerHTML = `
+        <div class="photo-thumb" id="thumb-${it.id}"></div>
+        <div class="photo-info">
+          <div class="name">${it.label}</div>
+          <div class="status" id="status-${it.id}">Not captured</div>
+        </div>
+        <input type="file" accept="image/*" capture="environment" id="file-${it.id}">
+        <div class="photo-actions">
+          ${isSketch ? `<button class="photo-btn" id="draw-${it.id}">Draw</button><button class="photo-btn photo-btn-outline" id="btn-${it.id}">Photo</button>`
+                     : `<button class="photo-btn" id="btn-${it.id}">Capture</button>`}
+        </div>`;
+      inner.appendChild(row);
+      const fileInput = row.querySelector("#file-"+it.id);
+      row.querySelector("#btn-"+it.id).addEventListener("click", ()=> fileInput.click());
+      fileInput.addEventListener("change", (e)=>{
+        const f = e.target.files[0];
+        if(!f) return;
+        commitPhotoCapture(it.id, f);
+      });
+      if(isSketch){
+        row.querySelector("#draw-"+it.id).addEventListener("click", ()=> openSketch(it.id));
+      }
+    });
+    // Additional, unlisted site photos - anything the fixed checklist doesn't cover.
+    const extraWrap = document.createElement("div");
+    extraWrap.id = "extraPhotosWrap";
+    extraWrap.style.marginTop = "6px";
+    extraWrap.innerHTML = `
+      <div class="extra-photos-title">Additional site photos</div>
+      <div id="extraPhotosList"></div>
+      <input type="file" accept="image/*" capture="environment" id="extraPhotoFileInput" style="display:none;">
+      <button type="button" class="photo-btn" id="btnAddExtraPhoto" style="margin-top:8px;">+ Add another photo</button>`;
+    inner.appendChild(extraWrap);
+    extraWrap.querySelector("#btnAddExtraPhoto").addEventListener("click", ()=>{
+      extraWrap.querySelector("#extraPhotoFileInput").click();
+    });
+    extraWrap.querySelector("#extraPhotoFileInput").addEventListener("change", (e)=>{
+      const f = e.target.files[0];
+      e.target.value = "";
+      if(!f) return;
+      addExtraPhoto(f);
+    });
+  } else {
+    sec.items.forEach(it=>{
+      const field = document.createElement("div");
+      field.className = "field";
+      let controlHtml = "";
+      if(it.type === "text" || it.type === "tel" || it.type === "date"){
+        controlHtml = `<input type="${it.type}" id="in-${it.id}" placeholder="${it.type==='date'?'':'Enter '+it.label.toLowerCase()}">`;
+      } else if(it.type === "number"){
+        controlHtml = `<div class="qty-row"><input type="number" inputmode="decimal" id="in-${it.id}" placeholder="0"><div class="unit-chip">${it.unit}</div></div>`;
+      } else if(it.type === "select"){
+        controlHtml = `<button type="button" class="picker-btn" id="in-${it.id}" data-value="">Select...</button>`;
+      } else if(it.type === "yesno"){
+        controlHtml = `<div class="toggle" id="in-${it.id}" data-value="">
+          <button type="button" data-val="Yes">Yes</button>
+          <button type="button" data-val="No">No</button>
+        </div>`;
+      } else if(it.type === "textarea"){
+        controlHtml = `<textarea id="in-${it.id}" placeholder="Anything the sales/BOQ team should know..."></textarea>`;
+      } else if(it.type === "location"){
+        controlHtml = `<div class="location-row">
+            <input type="text" id="in-${it.id}" placeholder="Enter address or use GPS">
+            <button type="button" class="loc-btn" id="locbtn-${it.id}">📍 GPS</button>
+          </div>
+          <a href="#" target="_blank" rel="noopener" class="loc-open" id="locopen-${it.id}">Open in Google Maps ↗</a>
+          <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="loc-manual" id="locmanual-${it.id}">GPS blocked? Open Google Maps, find the pin, then copy the link back here ↗</a>`;
+      }
+      field.innerHTML = `<label for="in-${it.id}">${it.label}</label>${controlHtml}`;
+      if(it.conditional){
+        field.dataset.conditional = it.conditional;
+        field.classList.add("conditional-field-hidden");
+      }
+      inner.appendChild(field);
+    });
+  }
+
+  body.appendChild(inner);
+  secDiv.appendChild(body);
+  container.appendChild(secDiv);
+});
+
+// wire up inputs after render
+SECTIONS.forEach(sec=>{
+  if(sec.photoSection) return;
+  sec.items.forEach(it=>{
+    if(it.type === "yesno"){
+      const wrap = document.getElementById("in-"+it.id);
+      wrap.querySelectorAll("button").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const val = btn.dataset.val;
+          answers[it.id] = val;
+          wrap.dataset.value = val;
+          wrap.querySelectorAll("button").forEach(b=>b.classList.remove("active-yes","active-no"));
+          btn.classList.add(val==="Yes"?"active-yes":"active-no");
+          updateConditionalFields();
+          updateProgress();
+          saveDraft();
+        });
+      });
+    } else if(it.type === "select"){
+      const btn = document.getElementById("in-"+it.id);
+      btn.addEventListener("click", ()=> openPicker(it));
+    } else if(it.type === "location"){
+      const el = document.getElementById("in-"+it.id);
+      const openLink = document.getElementById("locopen-"+it.id);
+      const refreshOpenLink = ()=>{
+        const v = (answers[it.id] || "").trim();
+        if(/^https?:\/\//i.test(v)){
+          openLink.href = v;
+          openLink.classList.add("show");
+        } else {
+          openLink.classList.remove("show");
+        }
+      };
+      el.addEventListener("input", ()=>{ answers[it.id] = el.value; updateProgress(); saveDraft(); refreshOpenLink(); });
+      el.addEventListener("change", ()=>{ answers[it.id] = el.value; updateProgress(); saveDraft(); refreshOpenLink(); });
+      document.getElementById("locbtn-"+it.id).addEventListener("click", ()=>{
+        if(!("geolocation" in navigator)){ toast("Location isn't available on this device/browser"); return; }
+        toast("Getting your location...");
+        navigator.geolocation.getCurrentPosition(
+          (pos)=>{
+            const link = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+            el.value = link;
+            answers[it.id] = link;
+            updateProgress(); saveDraft(); refreshOpenLink();
+            toast("Location captured");
+          },
+          (err)=>{
+            let msg;
+            if(err.code === 1){
+              msg = "Location permission denied - check Location is ON for this phone, and that this browser has Location permission (Android Settings > Apps > Chrome > Permissions).";
+            } else if(err.code === 2){
+              msg = "Couldn't determine your position - try moving outdoors or check your phone's Location setting.";
+            } else {
+              msg = "Location request timed out - try again.";
+            }
+            toast(msg);
+            document.getElementById("locmanual-"+it.id).classList.add("show");
+          },
+          {enableHighAccuracy:true, timeout:12000}
+        );
+      });
+      refreshOpenLink();
+    } else {
+      const el = document.getElementById("in-"+it.id);
+      el.addEventListener("input", ()=>{ answers[it.id] = el.value; updateProgress(); saveDraft(); });
+      el.addEventListener("change", ()=>{ answers[it.id] = el.value; updateProgress(); saveDraft(); });
+    }
+  });
+});
+
+// ---------- Picker sheet (replaces native <select>, works reliably everywhere) ----------
+function openPicker(item){
+  document.getElementById("pickerTitle").textContent = item.label;
+  const wrap = document.getElementById("pickerOptions");
+  wrap.innerHTML = "";
+  item.options.forEach(opt=>{
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "modal-option" + (answers[item.id] === opt ? " selected" : "");
+    b.textContent = opt;
+    b.addEventListener("click", ()=>{
+      answers[item.id] = opt;
+      const btn = document.getElementById("in-"+item.id);
+      btn.textContent = opt;
+      btn.classList.add("filled");
+      btn.dataset.value = opt;
+      closePicker();
+      updateProgress();
+      saveDraft();
+    });
+    wrap.appendChild(b);
+  });
+  document.getElementById("pickerOverlay").classList.add("show");
+}
+function closePicker(){ document.getElementById("pickerOverlay").classList.remove("show"); }
+document.getElementById("pickerCancel").addEventListener("click", closePicker);
+document.getElementById("pickerOverlay").addEventListener("click", (e)=>{
+  if(e.target.id === "pickerOverlay") closePicker();
+});
+
+// Keep Sign-off "Inspected by" following the Inspector name field live, as
+// long as the user hasn't typed something different into Inspected by
+// themselves.
+(function wireInspectorSync(){
+  const el = document.getElementById("in-inspector");
+  if(el) el.addEventListener("input", ()=> syncInspectedBy(el.value));
+  const ib = document.getElementById("in-inspected_by");
+  if(ib) ib.addEventListener("input", ()=>{ inspectedByManuallyEdited = true; });
+})();
+
+(async function init(){
+  db = await openDB();
+  await restoreDraft();
+  await initProfile();
+  updateProgress();
+})();
+
+// ---------- User profile (device-local identity, not a real account) ----------
+let profileName = "";
+// Keeps mirroring Inspector name -> Sign-off "Inspected by" live as you type,
+// until the user directly edits Inspected by themselves - then it stops
+// overwriting their choice.
+let inspectedByManuallyEdited = false;
+function syncInspectedBy(name){
+  if(!name || inspectedByManuallyEdited) return;
+  answers.inspected_by = name;
+  const el = document.getElementById("in-inspected_by");
+  if(el) el.value = name;
+}
+async function initProfile(){
+  const saved = await idbGet("profile:name");
+  if(saved){
+    profileName = saved;
+    document.getElementById("profileDisplay").textContent = profileName;
+  } else {
+    document.getElementById("profileDisplay").textContent = "Set your name";
+    setTimeout(openNamePrompt, 500);
+  }
+  if(profileName && !answers.inspector){
+    const el = document.getElementById("in-inspector");
+    if(el){ el.value = profileName; answers.inspector = profileName; }
+  }
+  syncInspectedBy(answers.inspector || profileName);
+}
+function openNamePrompt(){
+  document.getElementById("nameInput").value = profileName;
+  document.getElementById("nameOverlay").classList.add("show");
+}
+document.getElementById("profileDisplay").addEventListener("click", openNamePrompt);
+document.getElementById("nameCancel").addEventListener("click", ()=>{
+  document.getElementById("nameOverlay").classList.remove("show");
+});
+document.getElementById("nameSave").addEventListener("click", async ()=>{
+  const v = document.getElementById("nameInput").value.trim();
+  if(!v){ toast("Please enter a name"); return; }
+  profileName = v;
+  await idbPutAwait("profile:name", v);
+  document.getElementById("profileDisplay").textContent = v;
+  document.getElementById("nameOverlay").classList.remove("show");
+  if(!answers.inspector){
+    const el = document.getElementById("in-inspector");
+    if(el){ el.value = v; answers.inspector = v; updateProgress(); saveDraft(); }
+  }
+  syncInspectedBy(answers.inspector || v);
+  saveDraft();
+  toast("Name saved");
+});
+
+// ---------- Toast ----------
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=> t.classList.remove("show"), 2600);
+}
+
+// ---------- BOQ urgency ----------
+function setUrgency(level, persist){
+  answers.boq_urgency = level;
+  document.querySelectorAll(".urgency-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.level === level);
+  });
+  document.querySelector("header.top").classList.toggle("urgent", level === "Urgent");
+  if(persist !== false) saveDraft();
+}
+document.querySelectorAll(".urgency-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=> setUrgency(btn.dataset.level, true));
+});
+document.getElementById("boqExpectedDate").addEventListener("change", (e)=>{
+  answers.boq_expected_date = e.target.value;
+  saveDraft();
+});
+
+// ---------- Shared photo/sketch capture handling ----------
+function commitPhotoCapture(id, file){
+  const url = URL.createObjectURL(file);
+  photos[id] = {file, url};
+  const thumb = document.getElementById("thumb-"+id);
+  const status = document.getElementById("status-"+id);
+  const row = document.getElementById("photorow-"+id);
+  const btn = document.getElementById("btn-"+id);
+  if(thumb) thumb.innerHTML = `<img src="${url}">`;
+  if(status) status.textContent = file.name;
+  if(row) row.classList.add("captured");
+  if(btn) btn.textContent = "Retake";
+  if(id === "photo_sketch"){
+    const drawBtn = document.getElementById("draw-"+id);
+    if(drawBtn) drawBtn.textContent = "Edit";
+  }
+  idbPut("photo:"+id, {blob:file, name:file.name});
+  markSaved();
+  updateProgress();
+}
+
+// ---------- Additional (unlisted) site photos ----------
+let extraPhotoIds = [];
+function extraPhotoRowHtml(id, url, name){
+  return `
+    <div class="photo-item captured" id="photorow-${id}">
+      <div class="photo-thumb" id="thumb-${id}">${url ? `<img src="${url}">` : ""}</div>
+      <div class="photo-info">
+        <div class="name">Additional photo</div>
+        <div class="status" id="status-${id}">${name || "Not captured"}</div>
+      </div>
+      <button type="button" class="extra-photo-remove" id="remove-${id}">Remove</button>
+    </div>`;
+}
+function insertExtraPhotoRow(id, url, name){
+  const list = document.getElementById("extraPhotosList");
+  if(!list) return;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = extraPhotoRowHtml(id, url, name);
+  const rowEl = wrap.firstElementChild;
+  list.appendChild(rowEl);
+  document.getElementById("remove-"+id).addEventListener("click", ()=> removeExtraPhoto(id));
+}
+async function addExtraPhoto(file){
+  const id = "extra_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
+  extraPhotoIds.push(id);
+  await idbPutAwait("extraPhotoIds", JSON.stringify(extraPhotoIds));
+  insertExtraPhotoRow(id, URL.createObjectURL(file), file.name);
+  commitPhotoCapture(id, file);
+}
+async function removeExtraPhoto(id){
+  if(!confirm("Remove this photo?")) return;
+  extraPhotoIds = extraPhotoIds.filter(x=>x!==id);
+  await idbPutAwait("extraPhotoIds", JSON.stringify(extraPhotoIds));
+  await idbDeleteKey("photo:"+id);
+  delete photos[id];
+  const row = document.getElementById("photorow-"+id);
+  if(row) row.remove();
+  markSaved();
+  updateProgress();
+}
+
+// ---------- Sketch / paint tool ----------
+let sketchCtx, sketchDrawing=false, sketchLastX=0, sketchLastY=0;
+let sketchColor = "#16233D", sketchWidth = 4, sketchErasing = false;
+let sketchHistory = [];
+let sketchCurrentId = null;
+const sketchCanvas = document.getElementById("sketchCanvas");
+
+function sketchSizeCanvas(){
+  const wrap = sketchCanvas.parentElement;
+  const rect = wrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  sketchCanvas.width = rect.width * dpr;
+  sketchCanvas.height = rect.height * dpr;
+  sketchCtx = sketchCanvas.getContext("2d");
+  sketchCtx.setTransform(dpr,0,0,dpr,0,0);
+  sketchFillWhite();
+}
+function sketchFillWhite(){
+  const rect = sketchCanvas.parentElement.getBoundingClientRect();
+  sketchCtx.fillStyle = "#FFFFFF";
+  sketchCtx.fillRect(0,0,rect.width,rect.height);
+}
+function sketchPushHistory(){
+  try{
+    sketchHistory.push(sketchCtx.getImageData(0,0,sketchCanvas.width,sketchCanvas.height));
+    if(sketchHistory.length > 15) sketchHistory.shift();
+  }catch(e){}
+}
+function sketchGetPos(e){
+  const rect = sketchCanvas.getBoundingClientRect();
+  return [e.clientX - rect.left, e.clientY - rect.top];
+}
+sketchCanvas.addEventListener("pointerdown", (e)=>{
+  sketchDrawing = true;
+  sketchCanvas.setPointerCapture(e.pointerId);
+  sketchPushHistory();
+  [sketchLastX, sketchLastY] = sketchGetPos(e);
+});
+sketchCanvas.addEventListener("pointermove", (e)=>{
+  if(!sketchDrawing) return;
+  const [x,y] = sketchGetPos(e);
+  sketchCtx.strokeStyle = sketchErasing ? "#FFFFFF" : sketchColor;
+  sketchCtx.lineWidth = sketchErasing ? sketchWidth*4 : sketchWidth;
+  sketchCtx.lineCap = "round";
+  sketchCtx.lineJoin = "round";
+  sketchCtx.beginPath();
+  sketchCtx.moveTo(sketchLastX, sketchLastY);
+  sketchCtx.lineTo(x, y);
+  sketchCtx.stroke();
+  [sketchLastX, sketchLastY] = [x, y];
+});
+sketchCanvas.addEventListener("pointerup", ()=>{ sketchDrawing = false; });
+sketchCanvas.addEventListener("pointercancel", ()=>{ sketchDrawing = false; });
+
+document.querySelectorAll(".sketch-swatch").forEach(sw=>{
+  sw.addEventListener("click", ()=>{
+    sketchColor = sw.dataset.color;
+    sketchErasing = false;
+    document.querySelectorAll(".sketch-swatch").forEach(s=>s.classList.remove("active"));
+    sw.classList.add("active");
+    document.getElementById("sketchEraser").classList.remove("active");
+  });
+});
+document.querySelectorAll(".sketch-tool-btn[data-width]").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    sketchWidth = Number(b.dataset.width);
+    document.querySelectorAll(".sketch-tool-btn[data-width]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+  });
+});
+document.getElementById("sketchEraser").addEventListener("click", (e)=>{
+  sketchErasing = !sketchErasing;
+  e.target.classList.toggle("active", sketchErasing);
+});
+document.getElementById("sketchUndo").addEventListener("click", ()=>{
+  const prev = sketchHistory.pop();
+  if(prev) sketchCtx.putImageData(prev, 0, 0);
+});
+document.getElementById("sketchClear").addEventListener("click", ()=>{
+  sketchPushHistory();
+  sketchFillWhite();
+});
+document.getElementById("sketchCancel").addEventListener("click", closeSketch);
+document.getElementById("sketchOverlay").addEventListener("click", (e)=>{
+  // no-op: overlay is opaque full screen, avoid accidental close on canvas taps
+});
+document.getElementById("sketchSave").addEventListener("click", ()=>{
+  sketchCanvas.toBlob((blob)=>{
+    if(!blob){ toast("Couldn't save the sketch"); return; }
+    const file = new File([blob], "site_sketch.png", {type:"image/png"});
+    commitPhotoCapture(sketchCurrentId, file);
+    closeSketch();
+  }, "image/png");
+});
+
+function openSketch(id){
+  sketchCurrentId = id;
+  document.getElementById("sketchOverlay").classList.add("show");
+  sketchHistory = [];
+  requestAnimationFrame(()=>{
+    sketchSizeCanvas();
+    const existing = photos[id];
+    if(existing && existing.url){
+      const img = new Image();
+      img.onload = ()=>{
+        const rect = sketchCanvas.parentElement.getBoundingClientRect();
+        const scale = Math.min(rect.width / img.width, rect.height / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        const x = (rect.width - w) / 2, y = (rect.height - h) / 2;
+        sketchCtx.drawImage(img, x, y, w, h);
+      };
+      img.src = existing.url;
+    }
+  });
+}
+function closeSketch(){
+  document.getElementById("sketchOverlay").classList.remove("show");
+  sketchCurrentId = null;
+}
+
+// ---------- Excel export ----------
+function buildRows(){
+  const rows = [["Section","Item","Value","Qty","Unit"]];
+  SECTIONS.forEach(sec=>{
+    if(sec.photoSection){
+      let captured = sec.items.filter(it=>photos[it.id]).length;
+      rows.push([sec.title, "Photos captured on device", captured+" of "+sec.items.length, "", ""]);
+      sec.items.forEach(it=>{
+        rows.push(["", it.label, photos[it.id] ? "Captured" : "Not captured", "", ""]);
+      });
+      return;
+    }
+    sec.items.forEach(it=>{
+      if(it.conditional && answers[it.conditional] !== "Yes") return;
+      const v = answers[it.id] || "";
+      if(it.type === "number"){
+        rows.push([sec.title, it.label, "", v, it.unit]);
+      } else {
+        rows.push([sec.title, it.label, v, "", ""]);
+      }
+    });
+  });
+  return rows;
+}
+
+document.getElementById("btnExcel").addEventListener("click", async ()=>{
+  await exportExcel();
+});
+
+async function exportExcel(ansParam, photosParam){
+  try{
+    await buildStyledWorkbookExcelJS(ansParam, photosParam);
+    return;
+  }catch(err){
+    console.error("ExcelJS export failed, trying template read/write:", err);
+  }
+  try{
+    fillTemplateAndDownload(ansParam, photosParam);
+    return;
+  }catch(err){
+    console.error("Styled template export failed, falling back to plain export:", err);
+  }
+  try{
+    plainExportFallback(ansParam);
+  }catch(err2){
+    console.error("Plain export also failed:", err2);
+    toast("Export failed - check your internet connection and try again");
+  }
+}
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const ZIP_MIME = "application/zip";
+
+// ---------- Share-or-download helper ----------
+// Barebones WebView "site to app" wrappers (e.g. webintoapp.com) often can't
+// read the real file type off a blob: URL and save everything as a generic
+// .bin file. To work reliably there too, this: (1) always tags the Blob with
+// its correct MIME type, (2) tries the native Share sheet first when
+// available (works in most wrapped apps and lets you save straight to
+// Drive/WhatsApp/email), and (3) falls back to a data: URI download for
+// small files (more broadly compatible with simple WebViews than blob:
+// URLs) or a blob: URL for large ones.
+// Some browsers/WebViews report navigator.canShare({files}) as true but then
+// silently drop the actual file when share() is called, delivering only the
+// caption text to the target app (this is what your WhatsApp screenshot
+// showed - text bubbles with no real attachment). There's no reliable way to
+// detect that failure from JS, since share() still resolves successfully.
+// So: ALWAYS save a real file to Downloads first (the one thing that has
+// reliably worked), then separately attempt native share as a bonus - never
+// as the only way the file reaches you.
+async function shareOrDownload(blob, filename, mimeType, text){
+  downloadBlobDirect(blob, filename, mimeType);
+  toast("Saved "+filename+" to Downloads");
+  try{
+    const file = new File([blob], filename, {type: mimeType});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title: filename, text: text || filename});
+    }
+  }catch(e){
+    // Downloads already happened above, so there's nothing more to do here
+    // either way - the file is safely saved regardless of what share() did.
+  }
+}
+function downloadBlobDirect(blob, filename, mimeType){
+  if(blob.size < 4*1024*1024){
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const a = document.createElement("a");
+      a.href = reader.result;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+    reader.readAsDataURL(blob.type ? blob : new Blob([blob], {type:mimeType}));
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 30000);
+  }
+}
+
+// ---------- Primary export: build a freshly-styled workbook with ExcelJS ----------
+// This is the only one of the three export paths that can actually WRITE
+// cell colors/fonts (the free SheetJS build below can't - it was silently
+// dropping your template's navy/gold styling, which is why the previous
+// downloads looked plain). This recreates that same navy/light-blue/yellow
+// look directly, filled in with your answers.
+const XLSX_COLORS = {
+  navy:"FF1F3864", blue:"FF2E5395", lightBlue:"FFD9E2F3", yellow:"FFFFF2CC",
+  green:"FFEAF4EE", grey:"FFF2F2F2", white:"FFFFFFFF", border:"FFBFBFBF"
+};
+async function buildStyledWorkbookExcelJS(ansParam, photosParam, deliver){
+  if(typeof ExcelJS === "undefined") throw new Error("ExcelJS not loaded");
+  const a_ = ansParam || answers;
+  const p_ = photosParam || photos;
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Site Inspection", {views:[{state:"frozen", ySplit:3}]});
+  ws.columns = [
+    {width:34}, {width:24}, {width:22}, {width:10}, {width:9}, {width:30}
+  ];
+
+  const thinBorder = {style:"thin", color:{argb: XLSX_COLORS.border}};
+  const allBorders = {top:thinBorder, bottom:thinBorder, left:thinBorder, right:thinBorder};
+
+  function styleCell(cell, {fill, bold, color, italic, size, align, wrap} = {}){
+    cell.border = allBorders;
+    cell.font = {name:"Arial", size: size||10, bold: !!bold, italic: !!italic, color:{argb: color||"FF000000"}};
+    if(fill) cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb: fill}};
+    cell.alignment = {vertical:"middle", horizontal: align||"left", wrapText: wrap !== false};
+  }
+  function mergeRow(r1, r2, text, opts){
+    ws.mergeCells(r1, 1, r2, 6);
+    const cell = ws.getCell(r1, 1);
+    cell.value = text;
+    styleCell(cell, opts);
+    for(let rr=r1; rr<=r2; rr++){
+      for(let cc=1; cc<=6; cc++) ws.getCell(rr,cc).border = allBorders;
+    }
+  }
+
+  let row = 1;
+  mergeRow(row, row, "SOLAR PV SYSTEM - SITE INSPECTION REPORT",
+    {fill: XLSX_COLORS.navy, bold:true, color:"FFFFFFFF", size:14, align:"center"});
+  ws.getRow(row).height = 24;
+  row++;
+
+  let legend = "Completed "+fmtDate(a_.insp_date ? a_.insp_date : new Date().toISOString())+
+    (a_.inspector ? " by "+a_.inspector : "");
+  if(a_.boq_expected_date){
+    legend += "  |  BOQ needed by "+a_.boq_expected_date;
+  }
+  if(a_.boq_urgency && a_.boq_urgency !== "Normal"){
+    legend = (a_.boq_urgency === "Urgent" ? "\u26A0 URGENT - BOQ needed ASAP.  " : "PRIORITY - please expedite BOQ.  ") + legend;
+  }
+  mergeRow(row, row, legend, {italic:true, color:"FF595959", size:9});
+  row++;
+  row++;
+
+  function sectionHeader(title){
+    mergeRow(row, row, title, {fill: XLSX_COLORS.navy, bold:true, color:"FFFFFFFF"});
+    ws.getRow(row).height = 20;
+    row++;
+  }
+  function subHeader(){
+    const labels = ["Item","Selection / Detail","Value","Qty","Unit","Remarks"];
+    labels.forEach((lab, i)=>{
+      const cell = ws.getCell(row, i+1);
+      cell.value = lab;
+      styleCell(cell, {fill: XLSX_COLORS.lightBlue, bold:true, italic:true, size:9, align:"center"});
+    });
+    ws.getRow(row).height = 20;
+    row++;
+  }
+  function itemRow(label, value, qty, unit, filled){
+    const c1 = ws.getCell(row,1); c1.value = label; styleCell(c1, {});
+    const c2 = ws.getCell(row,2); c2.value = ""; styleCell(c2, {fill: XLSX_COLORS.grey});
+    const fillColor = filled ? XLSX_COLORS.green : XLSX_COLORS.grey;
+    const c3 = ws.getCell(row,3); c3.value = value || ""; styleCell(c3, {fill: fillColor});
+    const c4 = ws.getCell(row,4); c4.value = (qty === undefined || qty === "") ? "" : Number(qty); styleCell(c4, {fill: fillColor, align:"center"});
+    const c5 = ws.getCell(row,5); c5.value = unit || ""; styleCell(c5, {fill: XLSX_COLORS.grey, align:"center"});
+    const c6 = ws.getCell(row,6); c6.value = ""; styleCell(c6, {fill: XLSX_COLORS.grey});
+    ws.getRow(row).height = 18;
+    row++;
+  }
+
+  SECTIONS.forEach(sec=>{
+    sectionHeader((sec._idx!==undefined?(sec._idx+1)+". ":"")+sec.title.toUpperCase());
+    subHeader();
+    if(sec.photoSection){
+      const captured = sec.items.filter(it=>p_[it.id]).length;
+      itemRow("Photos captured on device", captured+" of "+sec.items.length, "", "", captured>0);
+      sec.items.forEach(it=>{
+        itemRow(it.label, p_[it.id] ? "Captured" : "Not captured", "", "", !!p_[it.id]);
+      });
+      const knownIds = new Set(sec.items.map(it=>it.id));
+      const extraCount = Object.keys(p_).filter(id => !knownIds.has(id)).length;
+      if(extraCount > 0){
+        itemRow("Additional site photos", extraCount+" attached (see shared photos)", "", "", true);
+      }
+    } else if(sec.items[0] && sec.items[0].type === "textarea"){
+      const val = a_[sec.items[0].id] || "";
+      mergeRow(row, row+2, val, {fill: val ? XLSX_COLORS.green : XLSX_COLORS.grey, wrap:true, align:"left"});
+      row += 3;
+    } else {
+      sec.items.forEach(it=>{
+        if(it.conditional && a_[it.conditional] !== "Yes") return;
+        const raw = a_[it.id];
+        const filled = raw !== undefined && raw !== "";
+        if(it.type === "number"){
+          itemRow(it.label, "", raw, it.unit, filled);
+        } else {
+          itemRow(it.label, raw, "", "", filled);
+        }
+      });
+    }
+    row++;
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type: XLSX_MIME});
+  const name = (a_.customer || "Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const prefix = a_.boq_urgency === "Urgent" ? "URGENT_" : a_.boq_urgency === "Priority" ? "PRIORITY_" : "";
+  const filename = prefix+"Site_Inspection_"+name+".xlsx";
+  if(deliver === false) return {blob, filename};
+  toast("Completed Excel ready...");
+  await shareOrDownload(blob, filename, XLSX_MIME);
+}
+
+// ---------- Fallback 1: fill values into your embedded template via SheetJS ----------
+// Kept as a backup in case ExcelJS fails to load - SheetJS's free build can't
+// reliably preserve the template's original styling, so this may come out
+// less colorful, but the data will still be complete and correctly placed.
+function fillTemplateAndDownload(ansParam, photosParam, deliver){
+  const a_ = ansParam || answers;
+  const p_ = photosParam || photos;
+  const wb = XLSX.read(TEMPLATE_XLSX_B64, {type:"base64", cellStyles:true});
+  const ws = wb.Sheets["Site Inspection"];
+  if(!ws) throw new Error("Template sheet not found");
+
+  for(const [id, cellRef] of Object.entries(CELL_MAP)){
+    const raw = a_[id];
+    if(raw === undefined || raw === "") continue;
+    const existing = ws[cellRef] || {};
+    if(QTY_KEYS.has(id)){
+      const num = Number(raw);
+      ws[cellRef] = Object.assign({}, existing, {t:"n", v: isNaN(num) ? raw : num});
+    } else {
+      ws[cellRef] = Object.assign({}, existing, {t:"s", v: String(raw)});
+    }
+  }
+  for(const [id, cellRef] of Object.entries(PHOTO_CELL_MAP)){
+    const existing = ws[cellRef] || {};
+    ws[cellRef] = Object.assign({}, existing, {t:"s", v: p_[id] ? "Yes" : "No"});
+  }
+  if(ws["A2"] && a_.boq_expected_date){
+    ws["A2"] = Object.assign({}, ws["A2"], {t:"s", v: ws["A2"].v+"  |  BOQ needed by "+a_.boq_expected_date});
+  }
+  if(a_.boq_urgency && a_.boq_urgency !== "Normal" && ws["A2"]){
+    ws["A2"] = Object.assign({}, ws["A2"], {t:"s",
+      v: (a_.boq_urgency === "Urgent" ? "\u26A0 URGENT - BOQ needed ASAP.  " : "PRIORITY - please expedite BOQ.  ") + ws["A2"].v});
+  }
+
+  const wbout = XLSX.write(wb, {bookType:"xlsx", type:"array", cellStyles:true});
+  const blob = new Blob([wbout], {type: XLSX_MIME});
+  const name = (a_.customer || "Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const prefix = a_.boq_urgency === "Urgent" ? "URGENT_" : a_.boq_urgency === "Priority" ? "PRIORITY_" : "";
+  const filename = prefix+"Site_Inspection_"+name+".xlsx";
+  if(deliver === false) return {blob, filename};
+  toast("Completed Excel ready...");
+  shareOrDownload(blob, filename, XLSX_MIME);
+}
+
+function plainExportFallback(ansParam, deliver){
+  const a_ = ansParam || answers;
+  const rows = buildRows();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = [{wch:28},{wch:34},{wch:22},{wch:10},{wch:8}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Site Inspection");
+  const wbout = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+  const blob = new Blob([wbout], {type: XLSX_MIME});
+  const name = (a_.customer || "Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const prefix = a_.boq_urgency === "Urgent" ? "URGENT_" : a_.boq_urgency === "Priority" ? "PRIORITY_" : "";
+  const filename = prefix+"Site_Inspection_"+name+".xlsx";
+  if(deliver === false) return {blob, filename};
+  toast("Downloading a plain version (styled template unavailable)...");
+  shareOrDownload(blob, filename, XLSX_MIME);
+}
+
+// Returns {blob, filename} for the best available export, without
+// downloading/sharing it - used by the combined "Share bundle" action below.
+async function getExcelBlob(ansParam, photosParam){
+  try{ return await buildStyledWorkbookExcelJS(ansParam, photosParam, false); }
+  catch(e){ console.error("ExcelJS build failed:", e); }
+  try{ return fillTemplateAndDownload(ansParam, photosParam, false); }
+  catch(e){ console.error("Template build failed:", e); }
+  return plainExportFallback(ansParam, false);
+}
+
+// ---------- Photo zip export (shared by live form + history) ----------
+function addPhotosToZip(zip, photosObj){
+  for(const [id, rec] of Object.entries(photosObj)){
+    const item = SECTIONS.find(s=>s.photoSection).items.find(i=>i.id===id);
+    const fileLike = rec.file || rec.blob;
+    const recName = (rec.file && rec.file.name) || rec.name || (id+".jpg");
+    const ext = (recName.split(".").pop() || "jpg");
+    zip.file((item ? item.label : id).replace(/[^a-z0-9]+/gi,"_")+"."+ext, fileLike);
+  }
+}
+// Returns {blob, filename} when photos exist, or null when there are none.
+async function getPhotosZipBlob(photosObj, filenamePrefix){
+  if(Object.keys(photosObj).length === 0) return null;
+  const zip = new JSZip();
+  addPhotosToZip(zip, photosObj);
+  const blob = await zip.generateAsync({type:"blob", mimeType: ZIP_MIME});
+  return {blob, filename: (filenamePrefix || "Site")+"_Photos.zip"};
+}
+async function buildPhotosZip(photosObj, filenamePrefix){
+  if(Object.keys(photosObj).length === 0){ toast("No photos captured for this entry"); return; }
+  toast("Zipping photos...");
+  const result = await getPhotosZipBlob(photosObj, filenamePrefix);
+  await shareOrDownload(result.blob, result.filename, ZIP_MIME);
+}
+
+document.getElementById("btnPhotos").addEventListener("click", ()=>{
+  buildPhotosZip(photos, (answers.customer||"Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40));
+});
+
+// ---------- Combined share: Excel + all photos in ONE zip file ----------
+async function shareBundle(ansParam, photosParam){
+  const a_ = ansParam || answers;
+  const p_ = photosParam || photos;
+  toast("Preparing files...");
+  let excelResult;
+  try{
+    excelResult = await getExcelBlob(a_, p_);
+  }catch(e){
+    console.error(e);
+    toast("Couldn't prepare the Excel file - check your internet connection");
+    return;
+  }
+  const zip = new JSZip();
+  zip.file(excelResult.filename, excelResult.blob);
+  addPhotosToZip(zip, p_);
+
+  const name = (a_.customer || "Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const prefix = a_.boq_urgency === "Urgent" ? "URGENT_" : a_.boq_urgency === "Priority" ? "PRIORITY_" : "";
+  const filename = prefix+"Site_Inspection_"+name+".zip";
+  const zipBlob = await zip.generateAsync({type:"blob", mimeType: ZIP_MIME});
+
+  const caption = "Site inspection - "+(a_.customer || "New site")+(a_.address ? " ("+a_.address+")" : "")+
+    (a_.boq_expected_date ? " - BOQ needed by "+a_.boq_expected_date : "");
+  await shareOrDownload(zipBlob, filename, ZIP_MIME, caption);
+}
+document.getElementById("btnShareBundle").addEventListener("click", ()=> shareBundle());
+
+// ---------- Email ----------
+document.getElementById("btnEmail").addEventListener("click", ()=>{
+  const urgent = answers.boq_urgency === "Urgent";
+  const priority = answers.boq_urgency === "Priority";
+  const prefix = urgent ? "[URGENT] " : priority ? "[PRIORITY] " : "";
+  const subject = prefix + "Site inspection - " + (answers.customer || "New site");
+  let body = "";
+  if(urgent) body += "URGENT - please prioritize this BOQ.\n\n";
+  else if(priority) body += "PRIORITY - please expedite this BOQ.\n\n";
+  body += "Completed site inspection for: " + (answers.customer || "-") + "\n";
+  body += "Address: " + (answers.address || "-") + "\n";
+  if(answers.location) body += "Location: " + answers.location + "\n";
+  body += "Inspector: " + (answers.inspector || "-") + " on " + (answers.insp_date || "-") + "\n\n";
+  body += "The completed Excel file and site photos are attached separately -\n";
+  body += "please attach Site_Inspection_....xlsx and Site_Photos.zip from your downloads before sending.\n\n";
+  if(answers.remarks){ body += "Notes: " + answers.remarks + "\n"; }
+  const mailto = "mailto:?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+  window.location.href = mailto;
+});
+
+// ---------- Reset ----------
+document.getElementById("btnReset").addEventListener("click", async ()=>{
+  if(!confirm("Clear all answers and photos on this form? Saved history is not affected.")) return;
+  await clearActiveDraftOnly();
+  location.reload();
+});
+
+// ---------- Save to history & start new ----------
+async function saveToHistory(){
+  const id = "history:" + Date.now();
+  const photosSnapshot = {};
+  for(const [pid, p] of Object.entries(photos)){
+    photosSnapshot[pid] = {blob: p.file, name: p.file.name};
+  }
+  const entry = {
+    savedAt: new Date().toISOString(),
+    customer: answers.customer || "Untitled site",
+    address: answers.address || "",
+    inspector: answers.inspector || "",
+    urgency: answers.boq_urgency || "Normal",
+    expectedDate: answers.boq_expected_date || "",
+    submittedBy: profileName || answers.inspector || "Unassigned",
+    answers: Object.assign({}, answers),
+    photos: photosSnapshot
+  };
+  await idbPutAwait(id, entry);
+  return id;
+}
+document.getElementById("btnSaveHistory").addEventListener("click", async ()=>{
+  if(!answers.customer && Object.keys(photos).length === 0){
+    toast("Nothing to save yet");
+    return;
+  }
+  if(!confirm("Save this inspection to history and start a new blank form?")) return;
+  try{
+    await saveToHistory();
+    await clearActiveDraftOnly();
+    location.reload();
+  }catch(e){
+    console.error(e);
+    toast("Couldn't save to history - try again");
+  }
+});
+
+// ---------- Image resize helper (keeps the shared package a reasonable size) ----------
+function resizeImageToDataURL(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      let w = img.width, h = img.height;
+      if(w > maxDim || h > maxDim){
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      const isPng = file.type === "image/png";
+      resolve(isPng ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("Couldn't load image")); };
+    img.src = url;
+  });
+}
+
+// ---------- Share a data package (for a team lead to Import) ----------
+// Includes compressed copies of your photos/sketch, so the ONE file you send
+// carries everything - answers and images - no separate .zip step needed.
+document.getElementById("btnSharePackage").addEventListener("click", async ()=>{
+  if(!answers.customer && Object.keys(photos).length === 0){
+    toast("Nothing to share yet");
+    return;
+  }
+  toast("Preparing package with photos...");
+  const photosOut = {};
+  for(const [id, p] of Object.entries(photos)){
+    try{
+      const dataUrl = await resizeImageToDataURL(p.file, 1600, 0.72);
+      photosOut[id] = {name: p.file.name, dataUrl};
+    }catch(e){
+      console.warn("Skipping photo in package:", id, e);
+    }
+  }
+  const pkg = {
+    kind: "solar-site-inspection-package",
+    version: 2,
+    submittedBy: profileName || answers.inspector || "Unassigned",
+    savedAt: new Date().toISOString(),
+    urgency: answers.boq_urgency || "Normal",
+    photoCount: Object.keys(photosOut).length,
+    answers: Object.assign({}, answers),
+    photos: photosOut
+  };
+  const blob = new Blob([JSON.stringify(pkg)], {type:"application/json"});
+  const name = (answers.customer || "Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const who = (pkg.submittedBy || "user").replace(/[^a-z0-9]+/gi,"_").slice(0,30);
+  toast(`Package ready (${(blob.size/1024/1024).toFixed(1)} MB)...`);
+  shareOrDownload(blob, who+"_"+name+".sitepkg.json", "application/json");
+});
+
+// ---------- Import a data package someone shared with you ----------
+// Files this app itself creates from "Share data package" above. Saves it
+// straight into your local History (photos included), filed under the
+// sender's name.
+document.getElementById("btnImportPackage").addEventListener("click", ()=>{
+  document.getElementById("importFileInput").click();
+});
+document.getElementById("importFileInput").addEventListener("change", async (e)=>{
+  const file = e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  try{
+    toast("Importing...");
+    const text = await file.text();
+    const pkg = JSON.parse(text);
+    if(!pkg || pkg.kind !== "solar-site-inspection-package" || !pkg.answers){
+      toast("That doesn't look like a data package from this app");
+      return;
+    }
+    const photosOut = {};
+    if(pkg.photos){
+      for(const [pid, rec] of Object.entries(pkg.photos)){
+        try{
+          const res = await fetch(rec.dataUrl);
+          const blob = await res.blob();
+          photosOut[pid] = {blob, name: rec.name};
+        }catch(e){ console.warn("Couldn't restore photo from package:", pid, e); }
+      }
+    }
+    const id = "history:" + Date.now();
+    const entry = {
+      savedAt: pkg.savedAt || new Date().toISOString(),
+      customer: pkg.answers.customer || "Untitled site",
+      address: pkg.answers.address || "",
+      inspector: pkg.answers.inspector || "",
+      urgency: pkg.urgency || pkg.answers.boq_urgency || "Normal",
+      expectedDate: pkg.answers.boq_expected_date || "",
+      submittedBy: pkg.submittedBy || pkg.answers.inspector || "Unassigned",
+      answers: pkg.answers,
+      photos: photosOut
+    };
+    if(!pkg.photos && (pkg.photoCount || 0) > 0){
+      entry.importedNote = pkg.photoCount+" photo(s) were captured on the sender's device but weren't included in this older-format package.";
+    }
+    await idbPutAwait(id, entry);
+    toast("Imported "+entry.customer+" from "+entry.submittedBy);
+    openHistory();
+  }catch(err){
+    console.error(err);
+    toast("Couldn't read that file - is it a .sitepkg.json from this app?");
+  }
+});
+
+// ---------- History browsing ----------
+function fmtDate(iso){
+  try{
+    const d = new Date(iso);
+    return d.toLocaleDateString([], {day:"2-digit", month:"short", year:"numeric"}) +
+           " " + d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  }catch(e){ return iso; }
+}
+
+const URGENCY_RANK = {Urgent:0, Priority:1, Normal:2};
+
+function buildHistoryCard(key, value){
+  const photoCount = Object.keys(value.photos || {}).length;
+  const card = document.createElement("div");
+  card.className = "history-card";
+  card.innerHTML = `
+    <div class="history-card-top">
+      <div>
+        <div class="hc-name">${(value.customer || "Untitled site")}</div>
+        <div class="hc-meta">${value.address ? value.address+" &middot; " : ""}${fmtDate(value.savedAt)}</div>
+        <div class="hc-meta">${photoCount} photo${photoCount===1?"":"s"} on this device${value.inspector ? " &middot; "+value.inspector : ""}</div>
+        ${value.expectedDate ? `<div class="hc-meta">BOQ needed by ${value.expectedDate}</div>` : ""}
+        ${value.importedNote ? `<div class="hc-meta">${value.importedNote}</div>` : ""}
+      </div>
+      <div class="hc-badge ${value.urgency}">${value.urgency || "Normal"}</div>
+    </div>
+    <div class="history-card-actions">
+      <button type="button" class="hc-btn" data-act="share">Share (WhatsApp/Email)</button>
+      <button type="button" class="hc-btn" data-act="excel">Download Excel</button>
+      <button type="button" class="hc-btn" data-act="zip" ${photoCount===0 ? "disabled style=\"opacity:.4;\"" : ""}>Download photos</button>
+      <button type="button" class="hc-btn" data-act="load">Load into form</button>
+      <button type="button" class="hc-btn danger" data-act="delete">Delete</button>
+    </div>`;
+  card.querySelector('[data-act="share"]').addEventListener("click", ()=> shareBundle(value.answers, value.photos));
+  card.querySelector('[data-act="excel"]').addEventListener("click", async ()=>{
+    await exportExcel(value.answers, value.photos);
+  });
+  if(photoCount > 0){
+    card.querySelector('[data-act="zip"]').addEventListener("click", ()=>{
+      buildPhotosZip(value.photos || {}, (value.customer||"Site").replace(/[^a-z0-9]+/gi,"_").slice(0,40));
+    });
+  }
+  card.querySelector('[data-act="load"]').addEventListener("click", ()=> loadHistoryIntoForm(key));
+  card.querySelector('[data-act="delete"]').addEventListener("click", ()=> deleteHistoryEntry(key));
+  return card;
+}
+
+async function renderHistoryList(){
+  const listEl = document.getElementById("historyList");
+  const rows = await idbGetAllByPrefix("history:");
+  if(rows.length === 0){
+    listEl.innerHTML = `<div class="history-empty">No saved inspections yet.<br>Use "Save to history &amp; start new visit" after finishing a site, or Import a package someone sent you.</div>`;
+    return;
+  }
+
+  // Group by who submitted it, so each person's entries sit on their own page.
+  const groups = {};
+  rows.forEach(({key, value})=>{
+    const person = value.submittedBy || value.inspector || "Unassigned";
+    if(!groups[person]) groups[person] = [];
+    groups[person].push({key, value});
+  });
+
+  // Order groups: whoever has the most urgent outstanding item comes first.
+  const groupNames = Object.keys(groups).sort((a,b)=>{
+    const rankA = Math.min(...groups[a].map(r => URGENCY_RANK[r.value.urgency] ?? 2));
+    const rankB = Math.min(...groups[b].map(r => URGENCY_RANK[r.value.urgency] ?? 2));
+    if(rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b);
+  });
+
+  listEl.innerHTML = "";
+  groupNames.forEach(person=>{
+    const entries = groups[person].sort((a,b)=>{
+      const rankA = URGENCY_RANK[a.value.urgency] ?? 2;
+      const rankB = URGENCY_RANK[b.value.urgency] ?? 2;
+      if(rankA !== rankB) return rankA - rankB;
+      return (b.value.savedAt||"").localeCompare(a.value.savedAt||"");
+    });
+    const groupEl = document.createElement("div");
+    groupEl.className = "history-group";
+    groupEl.innerHTML = `<div class="history-group-title">${person} <span class="history-group-count">${entries.length}</span></div>`;
+    entries.forEach(({key, value})=> groupEl.appendChild(buildHistoryCard(key, value)));
+    listEl.appendChild(groupEl);
+  });
+}
+
+async function loadHistoryIntoForm(key){
+  if(!confirm("Load this into the form? Your current unsaved answers on this device will be replaced.")) return;
+  const value = await idbGet(key);
+  if(!value){ toast("Couldn't find that entry"); return; }
+  try{
+    await idbPutAwait("answers", value.answers || {});
+    for(const sec of SECTIONS){
+      if(!sec.photoSection) continue;
+      for(const it of sec.items) await idbDeleteKey("photo:"+it.id);
+    }
+    for(const [pid, rec] of Object.entries(value.photos || {})){
+      await idbPutAwait("photo:"+pid, rec);
+    }
+    location.reload();
+  }catch(e){
+    console.error(e);
+    toast("Couldn't load that entry - try again");
+  }
+}
+
+async function deleteHistoryEntry(key){
+  if(!confirm("Delete this saved inspection? This can't be undone.")) return;
+  await idbDeleteKey(key);
+  renderHistoryList();
+  toast("Deleted");
+}
+
+function openHistory(){
+  document.getElementById("historyOverlay").classList.add("show");
+  renderHistoryList();
+}
+function closeHistory(){
+  document.getElementById("historyOverlay").classList.remove("show");
+}
+document.getElementById("btnHistory").addEventListener("click", openHistory);
+document.getElementById("btnHistory2").addEventListener("click", openHistory);
+document.getElementById("historyClose").addEventListener("click", closeHistory);
+</script>
+</body>
+
+</html>
